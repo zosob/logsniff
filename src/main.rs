@@ -3,6 +3,7 @@ use std::fs::File;
 use std::io::{self, BufRead};
 use std::path::Path;
 use serde::Serialize;
+use std::process::Command;
 
 #[derive(Parser)]
 #[command(name = "logsniff")]
@@ -27,11 +28,16 @@ struct Cli{
 
     #[arg(long, value_parser=["json","csv"])]
     export: Option<String>,
+
+    #[arg(long)]
+    detect_anomalies:bool,
 }
 
 #[derive(Debug, Serialize)]
 struct LogEntry{
     line: String,
+    line_length: usize,
+    token_count: usize,
 }
 
 fn main() -> io::Result<()>{
@@ -62,6 +68,8 @@ fn main() -> io::Result<()>{
 
             export_data.push(LogEntry {
                 line: line_str.to_string(),
+                line_length: line_str.len(),
+                token_count: line_str.split_whitespace().count(),
             });
 
             for word in ["INFO", "ERROR", "WARN", "Failed", "Accepted"]{
@@ -71,8 +79,16 @@ fn main() -> io::Result<()>{
             }
         }
     }
+
+    println!("\n Total matching lines: {}", total_matches);
+
+    for (level, count) in &log_level_counts {
+        println!("{:<10}: {}", level, count);
+    }
+
+
     if let Some(format) = &args.export {
-        let export_path = format!("export.{}", format);
+        let export_path = format!("output/export.{}", format);
         println!("\n Exporting to {}", export_path);
 
         match format.as_str(){
@@ -90,16 +106,16 @@ fn main() -> io::Result<()>{
             }
             _ => eprintln!("Unknown export format!"),
         }
-    }
-
-    if args.count{
-        println!("\n Total matching lines: {}", total_matches);
-    }
-
-    if args.summary {
-        println!("\n Summary:");
-        for (level,count) in &log_level_counts {
-            println!("{:<10} : {}", level, count);
+    
+    
+        if args.detect_anomalies{
+            println!("\nRunning ML analysis...");
+            let output = Command::new("python")
+                .arg("py/analyze.py")
+                .arg(&export_path)
+                .output()?;
+            println!("Analysis complete: See `anomalies.png` and `analyzed.csv`");
+            println!("{}", String::from_utf8_lossy(&output.stdout));
         }
     }
     Ok(())
