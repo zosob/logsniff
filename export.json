@@ -1,0 +1,8 @@
+[
+  {
+    "line": "Jul 6 10:01:00 sshd[12345]: Failed password for invalid user\r"
+  },
+  {
+    "line": "Jul 6 10:02:00 sshd[12345]: Accepted password for user\r"
+  }
+]

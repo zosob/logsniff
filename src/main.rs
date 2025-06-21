@@ -2,6 +2,7 @@ use clap::Parser;
 use std::fs::File;
 use std::io::{self, BufRead};
 use std::path::Path;
+use serde::Serialize;
 
 #[derive(Parser)]
 #[command(name = "logsniff")]
@@ -23,6 +24,14 @@ struct Cli{
     //Summarize log level frequency
     #[arg(long)]
     summary: bool,
+
+    #[arg(long, value_parser=["json","csv"])]
+    export: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+struct LogEntry{
+    line: String,
 }
 
 fn main() -> io::Result<()>{
@@ -36,6 +45,7 @@ fn main() -> io::Result<()>{
 
     let mut total_matches = 0;
     let mut log_level_counts: HashMap<String, usize> = HashMap::new();
+    let mut export_data: Vec<LogEntry> = Vec::new();
     for line_result in reader.split(b'\n'){
         let line = line_result?;
         let line_str = String::from_utf8_lossy(&line);
@@ -50,11 +60,35 @@ fn main() -> io::Result<()>{
             total_matches+=1;
             println!("{}", line_str);
 
+            export_data.push(LogEntry {
+                line: line_str.to_string(),
+            });
+
             for word in ["INFO", "ERROR", "WARN", "Failed", "Accepted"]{
                 if line_str.contains(word){
                     *log_level_counts.entry(word.to_string()).or_default() += 1;
                 }
             }
+        }
+    }
+    if let Some(format) = &args.export {
+        let export_path = format!("export.{}", format);
+        println!("\n Exporting to {}", export_path);
+
+        match format.as_str(){
+            "json" => {
+                let json = serde_json::to_string_pretty(&export_data)?;
+                std::fs::write(&export_path, json)?;
+            }
+
+            "csv" => {
+                let mut wtr = csv::Writer::from_path(&export_path)?;
+                for entry in &export_data {
+                    wtr.serialize(entry)?;
+                }
+                wtr.flush()?;
+            }
+            _ => eprintln!("Unknown export format!"),
         }
     }
 
