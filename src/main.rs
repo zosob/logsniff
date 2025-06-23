@@ -3,6 +3,7 @@ use std::fs::File;
 use std::io::{self, BufRead};
 use std::path::Path;
 use serde::Serialize;
+use serde::Deserialize;
 use std::process::Command;
 
 #[derive(Parser)]
@@ -40,9 +41,17 @@ struct LogEntry{
     token_count: usize,
 }
 
+#[derive(Debug, Deserialize)]
+struct Rule{
+    name: String,
+    pattern: String,
+    severity: String
+}
+
 fn main() -> io::Result<()>{
     let args = Cli::parse();
-
+    let rule_file = std::fs::read_to_string("data/rules.json")?;
+    let rules: Vec<Rule> = serde_json::from_str(&rule_file)?;
     let path = Path::new(&args.file);
     let file = File::open(path)?;
     let reader = io::BufReader::new(file);
@@ -65,7 +74,11 @@ fn main() -> io::Result<()>{
         if matches_filter{
             total_matches+=1;
             println!("{}", line_str);
-
+            for rule in &rules {
+            if line_str.contains(&rule.pattern){
+                println!("[{}] Rule Matched: {} - {}", rule.severity, rule.name, line_str);
+            }
+        }
             export_data.push(LogEntry {
                 line: line_str.to_string(),
                 line_length: line_str.len(),
@@ -78,6 +91,7 @@ fn main() -> io::Result<()>{
                 }
             }
         }
+        
     }
 
     println!("\n Total matching lines: {}", total_matches);

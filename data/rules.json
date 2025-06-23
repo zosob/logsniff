@@ -1,0 +1,15 @@
+[{
+    "name": "Failed login",
+    "pattern": "Failed password",
+    "severity": "high"
+},
+{
+    "name": "Accepted login",
+    "pattern": "Accepted password",
+    "severity": "info"
+},
+{
+    "name": "Root Access",
+    "pattern": "root",
+    "severity": "critical"
+}]
